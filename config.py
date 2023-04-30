@@ -8,6 +8,7 @@ PORT = os.environ.get('PORT', 5000)
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, 'data')
 MODEL_DIR = os.path.join(BASE_DIR, 'models')
 VOCAB_DIR = os.path.join(MODEL_DIR, 'vocab')
 MODEL_FILE = os.path.join(MODEL_DIR, 'model.pth')
@@ -27,9 +28,8 @@ class Config:
     dropout = 0.5
 
     # Data parameters
-    data_path = 'data/conversations.txt'
+    data_file = os.path.join(DATA_DIR, 'persona_chat', 'train_self_original.json')
     max_length = 10
 
     # Inference parameters
     max_length_inference = 20
-

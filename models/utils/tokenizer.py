@@ -1,46 +1,41 @@
 import json
-from collections import Counter
-from itertools import chain
+import os
 
 class Tokenizer:
-    def __init__(self, max_len=50):
-        self.max_len = max_len
-        self.stoi = {'<pad>': 0, '<start>': 1, '<end>': 2, '<unk>': 3}
-        self.itos = {0: '<pad>', 1: '<start>', 2: '<end>', 3: '<unk>'}
-        self.counter = Counter()
+    def __init__(self):
+        self.word2idx = {}
+        self.idx2word = {}
 
-    def fit(self, texts):
-        self.counter = Counter(chain.from_iterable(texts))
-        self.counter = Counter({k: c for k, c in self.counter.items() if c >= 5})
-        vocab = [token for token in self.counter.keys()]
-        for i, token in enumerate(vocab, 4):
-            self.stoi[token] = i
-            self.itos[i] = token
+    def add_sentence(self, sentence):
+        for word in sentence.split():
+            self.add_word(word)
 
-    def tokenize(self, text):
-        return text.lower().split()
+    def add_word(self, word):
+        if word not in self.word2idx:
+            idx = len(self.word2idx)
+            self.word2idx[word] = idx
+            self.idx2word[idx] = word
 
-    def convert_tokens_to_ids(self, tokens):
-        return [self.stoi.get(token, self.stoi['<unk>']) for token in tokens]
+    def encode(self, sentence):
+        return [self.word2idx[word] for word in sentence.split()]
 
-    def convert_ids_to_tokens(self, ids):
-        return [self.itos.get(i, '<unk>') for i in ids]
+    def decode(self, indices):
+        return ' '.join([self.idx2word[idx] for idx in indices])
 
     def save(self, file_path):
         with open(file_path, 'w') as f:
-            json.dump({
-                'max_len': self.max_len,
-                'stoi': self.stoi,
-                'itos': self.itos,
-                'counter': self.counter,
-            }, f)
+            json.dump({'word2idx': self.word2idx, 'idx2word': self.idx2word}, f)
+        print(f'Saved tokenizer to {file_path}')
 
-    @classmethod
-    def load(cls, file_path):
-        with open(file_path, 'r') as f:
-            tokenizer = cls()
-            tokenizer.vocab = json.load(f)
-            tokenizer.stoi = tokenizer.vocab['stoi']
-            tokenizer.itos = tokenizer.vocab['itos']
-            tokenizer.max_len = tokenizer.vocab['max_len']
+    @staticmethod
+    def load(file_path):
+        tokenizer = Tokenizer()
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+                tokenizer.word2idx = data['word2idx']
+                tokenizer.idx2word = data['idx2word']
+        else:
+            print(f"Tokenizer file '{file_path}' does not exist. Creating new file...")
+            tokenizer.save(file_path)
         return tokenizer

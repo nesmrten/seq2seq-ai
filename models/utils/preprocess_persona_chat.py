@@ -97,3 +97,30 @@ def save_data(data, output_dir):
     with open(output_dir, 'w') as f:
         json.dump(data, f)
     print('Saved data to', output_dir)
+
+if __name__ == '__main__':
+    # Add command line arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input_file', type=str, default='data/personachat/train_self_original.json',
+                        help='Path to the input JSON file')
+    parser.add_argument('--output_dir', type=str, default='data/personachat/processed',
+                        help='Path to the output directory')
+    args = parser.parse_args()
+
+    # Create the output directory if it doesn't exist
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    # Load the data from the input file
+    with open(args.input_file, 'r') as f:
+        data = json.load(f)
+
+    # Process the dialogues in the data
+    processed_data = process_dialogues(data)
+
+    # Split the data into train, dev, and test sets
+    train_data, dev_data, test_data = split_train_dev_test(processed_data)
+
+    # Save the processed data
+    save_data(train_data, os.path.join(args.output_dir, 'train.json'))
+    save_data(dev_data, os.path.join(args.output_dir, 'dev.json'))
+    save_data(test_data, os.path.join(args.output_dir, 'test.json'))
