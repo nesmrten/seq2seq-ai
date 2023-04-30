@@ -27,7 +27,7 @@ class Config:
     dropout = 0.5
 
     # Data parameters
-    data_file = os.path.join(DATA_DIR, 'persona_chat', 'train_self_original.json')
+    data_file = os.path.join(DATA_DIR, './', 'train_self_original.json')
     max_length = 10
 
     # Inference parameters
@@ -36,3 +36,21 @@ class Config:
     # Model paths
     model_file = os.path.join(MODEL_DIR, 'model_best.pth.tar')
     tokenizer_file = TOKENIZER_FILE
+    
+import os
+
+# Path to the Cornell Movie Dialogs dataset directory
+DATA_DIR = os.path.join(os.getcwd(), 'data', 'cornell_movie_dialogs')
+
+# Minimum and maximum length of a conversation pair (in words)
+MIN_LENGTH = 2
+MAX_LENGTH = 10
+
+# Ratio of validation set size to total dataset size
+VALIDATION_SPLIT = 0.1
+
+# Path to the training set file
+TRAIN_FILE = os.path.join(os.getcwd(), 'data', 'cornell_movie_dialogs', 'train.txt')
+
+# Path to the validation set file
+VAL_FILE = os.path.join(os.getcwd(), 'data', 'cornell_movie_dialogs', 'val.txt')
