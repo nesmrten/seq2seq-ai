@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Chatbot</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/style.css') }}">
+  </head>
+  <body>
+    <div class="chatbot">
+      <h1>Chatbot</h1>
+      <div id="chatlog">
+        <div class="bot">Hi, how can I help you?</div>
+      </div>
+      <form id="chatform" onsubmit="return sendMessage();">
+        <input type="text" id="message" name="message" placeholder="Type your message here...">
+        <input type="submit" value="Send">
+      </form>
+    </div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  </body>
+</html>
