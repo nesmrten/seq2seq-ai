@@ -11,7 +11,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 MODEL_DIR = os.path.join(BASE_DIR, 'models')
 VOCAB_DIR = os.path.join(MODEL_DIR, 'vocab')
-MODEL_FILE = os.path.join(MODEL_DIR, 'model.pth')
 TOKENIZER_FILE = os.path.join(VOCAB_DIR, 'tokenizer.json')
 
 class Config:
@@ -33,3 +32,7 @@ class Config:
 
     # Inference parameters
     max_length_inference = 20
+    
+    # Model paths
+    model_file = os.path.join(MODEL_DIR, 'model_best.pth.tar')
+    tokenizer_file = TOKENIZER_FILE

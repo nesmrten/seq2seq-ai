@@ -2,13 +2,14 @@ import torch
 import json
 from models.utils.tokenizer import Tokenizer
 from models.seq2seq import EncoderRNN, DecoderRNN, Seq2Seq
+from config import Config
 
 
 class Chatbot:
     def __init__(self, model_file, tokenizer_file):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.tokenizer = Tokenizer.load(tokenizer_file)
-        self.seq2seq = Seq2Seq(model_file=model_file, tokenizer=self.tokenizer).to(self.device)
+        self.seq2seq = Seq2Seq(model_path=model_file, tokenizer=self.tokenizer).to(self.device)
 
     def generate_response(self, input_str):
         input_tkn = self.tokenizer.encode(input_str)
@@ -19,7 +20,7 @@ class Chatbot:
         dec_hidden = enc_hidden
         dec_input = torch.LongTensor([[self.tokenizer.vocab['<sos>']]])
 
-        max_len = 20
+        max_len = Config.max_length_inference
         result_tkn = []
         for i in range(max_len):
             dec_output, dec_hidden = self.seq2seq.decoder(dec_input, dec_hidden)
