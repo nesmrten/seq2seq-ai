@@ -7,8 +7,8 @@ from models.seq2seq import EncoderRNN, DecoderRNN, Seq2Seq
 class Chatbot:
     def __init__(self, model_file, tokenizer_file):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.seq2seq = Seq2Seq(model_file=model_file).to(self.device)
         self.tokenizer = Tokenizer.load(tokenizer_file)
+        self.seq2seq = Seq2Seq(model_file=model_file, tokenizer=self.tokenizer).to(self.device)
 
     def generate_response(self, input_str):
         input_tkn = self.tokenizer.encode(input_str)
