@@ -1,157 +1,68 @@
 import os
-import re
-import unicodedata
-import numpy as np
-from typing import Dict, List, Tuple
-from torchtext.data.utils import get_tokenizer
-from torch.nn.utils.rnn import pad_sequence
-from config import Config
+import json
+import random
+from typing import List, Tuple, Dict
+
+import torch
+from torch import Tensor
+
+
+DATA_DIR = 'data/cornell movie-dialogs corpus/'
 
 class CornellDataProcessor:
-    """
-    A class for processing Cornell Movie Dialogs data.
-    """
+    def __init__(self, data_dir: str, min_word_freq: int = 5, max_len: int = 50):
+        """
+        Initialize the CornellDataProcessor object.
 
-    def __init__(self, data_dir: str, min_length: int, max_length: int, validation_split: float,
-                 train_file: str, val_file: str):
+        Args:
+            data_dir (str): The directory where the data files are stored.
+            min_word_freq (int): The minimum frequency for a word to be included in the vocabulary.
+            max_len (int): The maximum length of a sequence (in tokens).
+        """
         self.data_dir = data_dir
-        self.min_length = min_length
-        self.max_length = max_length
-        self.validation_split = validation_split
-        self.train_file = train_file
-        self.val_file = val_file
+        self.min_word_freq = min_word_freq
+        self.max_len = max_len
 
-    def extract_lines(self, lines: Dict[str, str]) -> Dict[str, str]:
-        """
-        Extracts lines from the input dictionary.
+        # Define the file paths
+        self.metadata_file = os.path.join(data_dir, 'movie_characters_metadata.txt')
+        self.conversations_file = os.path.join(data_dir, 'movie_conversations.txt')
+        self.lines_file = os.path.join(data_dir, 'movie_lines.txt')
+        self.vocab_file = os.path.join(data_dir, 'vocab.json')
+        self.train_file = os.path.join(data_dir, 'train.txt')
+        self.val_file = os.path.join(data_dir, 'val.txt')
 
-        Args:
-            lines (dict): A dictionary containing information about each line.
-
-        Returns:
-            dict: A dictionary containing only the relevant information for each line.
-        """
-        extracted_lines = {}
-        for line_id, line_info in lines.items():
-            if line_info['character_id'] != 'u':
-                extracted_lines[line_id] = line_info['text']
-        return extracted_lines
-
-    def extract_conversations(self, lines: Dict[str, str], conversations: List[List[str]]) -> List[List[str]]:
-        """
-        Extracts conversations from the input list of conversations.
-
-        Args:
-            lines (dict): A dictionary containing information about each line.
-            conversations (list): A list of conversations in the format [['line_id_1', 'line_id_2', ...], ...].
-
-        Returns:
-            list: A list of conversations in the format [['line_1', 'line_2', ...], ...].
-        """
-        extracted_conversations = []
-        for conversation in conversations:
-            # Get the text for each line in the conversation
-            lines_in_conversation = [lines[line_id] for line_id in conversation]
-            # Add the conversation to the list of extracted conversations
-            extracted_conversations.append(lines_in_conversation)
-        return extracted_conversations
-
-    def load_lines(self, file_path: str, encoding: str = 'ISO-8859-1') -> Dict[str, str]:
-        """Load the lines from the given file and return as a dictionary.
-
-        Args:
-            file_path (str): The path of the file to load.
-            encoding (str, optional): The encoding of the file. Defaults to 'ISO-8859-1'.
-
-        Returns:
-            dict: A dictionary containing the lines with their IDs as keys.
-        """
-        lines = {}
-        with open(file_path, 'r', encoding=encoding, errors='ignore') as f:
-            for line in f:
-                line_parts = line.strip().split(' +++$+++ ')
-                if len(line_parts) == 5:
-                    lines[line_parts[0]] = line_parts[4]
-        return lines
-
-    def load_conversations(self, file_path: str, lines: Dict[str, str]) -> List[List[str]]:
-        """Load the conversations from the given file and return as a list of lists of line IDs.
-
-        Args:
-            file_path (str): The path of the file to load.
-            lines (dict): A dictionary containing the lines with their IDs as keys.
-
-        Returns:
-            list: A list of lists containing the line IDs for each conversation.
-        """
-        conversations = []
-        with open(file_path, 'r', encoding='ISO-8859-1', errors='ignore') as f:
-            for line in f:
-                conversation_parts = line.strip().split(' +++$+++ ')[-1][1:-1].replace("'", "").split(", ")
-                conversation_parts = [p for p in conversation_parts if p in lines]
-                if len(conversation_parts) > 1:
-                    conversations.append(conversation_parts)
-        return conversations
-
-    def clean_text(self, text: str) -> str:
-        """
-        Cleans the input text by removing unwanted characters and converting to lowercase.
-
-        Args:
-            text (str): The text to clean.
-
-        Returns:
-            str: The cleaned text.
-        """
-        # Convert to lowercase
-        text = text.lower()
-
-        # Remove unwanted characters
-        text = re.sub(r"([.!?])", r" \1", text)
-        text = re.sub(r"[^a-zA-Z.!?]+", r" ", text)
-
-        return text
-
-    def preprocess_sentence(self, sentence: str) -> List[str]:
-        """
-        Preprocesses a sentence by cleaning it and tokenizing it into a list of words.
-
-        Args:
-            sentence (str): The sentence to preprocess.
-
-        Returns:
-            List[str]: A list of preprocessed words.
-        """
-        # Clean the sentence
-        sentence = self.clean_text(sentence)
-
-        # Tokenize the sentence
-        tokenizer = get_tokenizer('basic_english')
-        tokens = tokenizer(sentence.strip())
-
-        return tokens
+        # Initialize the variables
+        self.word_freq = {}
+        self.word2idx = {'<pad>': 0, '<unk>': 1, '<sos>': 2, '<eos>': 3}
+        self.idx2word = {0: '<pad>', 1: '<unk>', 2: '<sos>', 3: '<eos>'}
+        self.conversations = []
+        self.questions = []
+        self.answers = []
 
     def preprocess_pairs(self, pairs: List[Tuple[str, str]]) -> Tuple[List[List[str]], List[List[str]]]:
         """
-        Preprocesses pairs of questions and answers.
+        Preprocesses the input pairs of questions and answers by tokenizing, lowercasing, and adding the start and end
+        tokens.
 
         Args:
             pairs (List[Tuple[str, str]]): A list of pairs of questions and answers.
 
         Returns:
-            Tuple[List[List[str]], List[List[str]]]: A tuple of preprocessed questions and preprocessed answers.
+            Tuple[List[List[str]], List[List[str]]]: The preprocessed questions and answers as lists of lists of tokens.
         """
-        # Preprocess the questions and answers separately
-        questions = []
-        answers = []
-        for pair in pairs:
-            question = self.preprocess_sentence(pair[0])
-            answer = self.preprocess_sentence(pair[1])
-            if len(question) > 0 and len(answer) > 0:
-                questions.append(question)
-                answers.append(answer)
+        # Tokenize and lowercase the questions and answers
+        tokenized_pairs = [(self.tokenize(sentence.lower()), self.tokenize(response.lower())) for sentence, response in pairs]
 
-        return questions, answers
+        # Add the start and end tokens to the answer
+        preprocessed_pairs = [(question, ['<sos>'] + answer + ['<eos>']) for question, answer in tokenized_pairs]
+
+        # Filter out pairs with questions or answers that are too long
+        preprocessed_pairs = [(question, answer) for question, answer in preprocessed_pairs if len(question) <= self.max_len and len(answer) <= self.max_len]
+
+        # Separate the questions and answers
+        questions, answers = zip(*preprocessed_pairs)
+
+        return list(questions), list(answers)
 
     def build_vocabulary(self, pairs: List[Tuple[str, str]]) -> None:
         """
@@ -167,15 +78,14 @@ class CornellDataProcessor:
         all_words = [word for sentence in questions + answers for word in sentence]
 
         # Count the frequency of each word
-        word_freq = {}
         for word in all_words:
-            if word not in word_freq:
-                word_freq[word] = 1
+            if word not in self.word_freq:
+                self.word_freq[word] = 1
             else:
-                word_freq[word] += 1
+                self.word_freq[word] += 1
 
         # Sort the words by frequency
-        sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
+        sorted_words = sorted(self.word_freq.items(), key=lambda x: x[1], reverse=True)
 
         # Create the vocabulary
         self.word2idx = {'<pad>': 0, '<unk>': 1, '<sos>': 2, '<eos>': 3}
@@ -186,85 +96,191 @@ class CornellDataProcessor:
             self.word2idx[word] = i + 4
             self.idx2word[i + 4] = word
 
-        # Save the vocabulary to disk
-        with open(self.vocab_file, 'w', encoding='utf-8') as f:
-            json.dump({'word2idx': self.word2idx, 'idx2word': self.idx2word}, f)
+# Save the vocabulary to disk
+with open(self.vocab_file, 'w', encoding='utf-8') as f:
+    json.dump({'word2idx': self.word2idx, 'idx2word': self.idx2word}, f)
 
-    def generate_pairs(self, conversations: List[List[str]]) -> List[Tuple[str, str]]:
-        """
-        Generate question-answer pairs from the input conversations.
+def load_vocab(self) -> None:
+    """
+    Loads the vocabulary from the vocabulary file.
 
-        Args:
-            conversations (List[List[str]]): A list of conversations.
+    Raises:
+        FileNotFoundError: If the vocabulary file does not exist.
+    """
+    if not os.path.exists(self.vocab_file):
+        raise FileNotFoundError(f'Vocabulary file {self.vocab_file} not found')
 
-        Returns:
-            List[Tuple[str, str]]: A list of question-answer pairs.
-        """
-        # Get pairs of conversational lines
-        conversation_pairs = self.get_conversation_pairs(conversations, self.lines)
+    # Load the vocabulary from disk
+    with open(self.vocab_file, 'r', encoding='utf-8') as f:
+        vocab = json.load(f)
+    self.word2idx = vocab['word2idx']
+    self.idx2word = vocab['idx2word']
 
-        # Filter pairs based on their length
-        filtered_pairs = []
-        for pair in conversation_pairs:
-            if self.min_length <= len(pair[0].split()) <= self.max_length and \
-                    self.min_length <= len(pair[1].split()) <= self.max_length:
-                filtered_pairs.append(pair)
+def load_data(self) -> None:
+    """
+    Loads the data from the data files.
+    """
+    # Load the vocabulary
+    self.load_vocab()
 
-        return filtered_pairs
+    # Load the conversations
+    self.load_conversations()
 
-    def split_dataset(self, pairs: List[Tuple[str, str]], validation_split: float) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
-        """
-        Split the input dataset into training and validation sets.
+    # Split the conversations into questions and answers
+    self.extract_pairs()
 
-        Args:
-            pairs (List[Tuple[str, str]]): A list of question-answer pairs.
-            validation_split (float): The ratio of validation set size to total dataset size.
+    # Build the vocabulary from the questions and answers
+    self.build_vocabulary(list(zip(self.questions, self.answers)))
 
-        Returns:
-            Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: A tuple of training and validation sets of question-answer pairs.
-        """
-        # Shuffle the dataset
-        np.random.shuffle(pairs)
+    # Save the training and validation data to disk
+    self.save_data()
 
-        # Split the dataset into training and validation sets
-        num_validation_samples = int(len(pairs) * validation_split)
-        train_pairs = pairs[:-num_validation_samples]
-        val_pairs = pairs[-num_validation_samples:]
+def load_conversations(self) -> None:
+    """
+    Loads the conversations from the conversations file.
+    """
+    # Load the conversations from the file
+    with open(self.conversations_file, 'r', encoding='iso-8859-1') as f:
+        lines = f.readlines()
 
-        return train_pairs, val_pairs
+    # Parse the conversations
+    for line in lines:
+        line = line.strip()
+        if line:
+            conversation = json.loads(line)
+            conversation = [self.extract_text_from_line(line_id) for line_id in conversation['utterance_ids']]
+            self.conversations.append(conversation)
 
-    def write_to_file(self, pairs: List[Tuple[str, str]], file_path: str) -> None:
-        """
-        Write the input pairs to file.
+def extract_text_from_line(self, line_id: str) -> str:
+    """
+    Extracts the text from a line in the lines file.
 
-        Args:
-            pairs (List[Tuple[str, str]]): A list of question-answer pairs.
-            file_path (str): The path of the file to write to.
-        """
-        with open(file_path, 'w', encoding='utf-8') as f:
-            for pair in pairs:
-                f.write(pair[0] + '\t' + pair[1] + '\n')
+    Args:
+        line_id (str): The ID of the line to extract.
 
-    def build_dataset(self) -> None:
-        """
-        Build the dataset from the Cornell Movie Dialogs corpus.
-        """
-        # Load lines from file
-        self.lines = self.load_lines(os.path.join(self.data_dir, 'movie_lines.txt'))
+    Returns:
+        str: The text of the line.
+    """
+    # Find the line with the given ID
+    with open(self.lines_file, 'r', encoding='iso-8859-1') as f:
+        for line in f:
+            line = line.strip()
+            if line_id in line:
+                parts = line.split(' +++$+++ ')
+                text = parts[-1]
+                return text
 
-        # Load conversations from file
-        self.conversations = self.load_conversations(os.path.join(self.data_dir, 'movie_conversations.txt'), self.lines)
+    # If the line wasn't found, return an empty string
+    return ''
 
-        # Generate pairs of conversational lines
-        pairs = self.generate_pairs(self.conversations)
+def extract_pairs(self) -> None:
+    """
+    Extracts pairs of questions and answers from the conversations.
+    """
+    # Iterate through each conversation
+    for conversation in self.conversations:
+        # Iterate through each pair of adjacent utterances
+        for i in range(len(conversation) - 1):
+            self.questions.append(conversation[i])
+            self.answers.append(conversation[i + 1])
 
-        # Split dataset into training and validation sets
-        train_pairs, val_pairs = self.split_dataset(pairs, self.validation_split)
+def save_data(self) -> None:
+    """
+    Saves the training and validation data to disk.
+    """
+    # Split the data into training and validation sets
+    indices = list(range(len(self.questions)))
+    random.shuffle(indices)
+    train_indices = indices[:int(len(indices) * 0.9)]
+    val_indices = indices[int(len(indices) * 0.9):]
 
-        # Write pairs to file
-        self.write_to_file(train_pairs, self.train_file)
-        self.write_to_file(val_pairs, self.val_file)
-        
-    if __name__ == "__main__":
-        data_processor = CornellDataProcessor(DATA_DIR)
-        data_processor.build_dataset()
+# Save the training data to disk
+self.save_data(self.train_file, self.questions[:train_cutoff], self.answers[:train_cutoff])
+
+# Save the validation data to disk
+self.save_data(self.val_file, self.questions[train_cutoff:], self.answers[train_cutoff:])
+
+def tokenize(self, sentence: str) -> List[str]:
+    """
+    Tokenizes a sentence.
+
+    Args:
+        sentence (str): The sentence to tokenize.
+
+    Returns:
+        List[str]: The tokenized sentence.
+    """
+    # Split the sentence into tokens
+    tokens = sentence.split()
+
+    # Remove any tokens that contain non-alphabetic characters
+    tokens = [token for token in tokens if token.isalpha()]
+
+    return tokens
+
+def save_data(self, file_path: str, questions: List[List[str]], answers: List[List[str]]) -> None:
+    """
+    Saves the questions and answers to disk.
+
+    Args:
+        file_path (str): The path to the file where the data will be saved.
+        questions (List[List[str]]): A list of questions as lists of tokens.
+        answers (List[List[str]]): A list of answers as lists of tokens.
+    """
+    # Combine the questions and answers into pairs
+    pairs = list(zip(questions, answers))
+
+    # Shuffle the pairs
+    random.shuffle(pairs)
+
+    # Open the file for writing
+    with open(file_path, 'w', encoding='utf-8') as f:
+        # Write each pair to the file as a JSON object
+        for question, answer in pairs:
+            f.write(json.dumps({'question': question, 'answer': answer}) + '\n')
+
+if __name__ == '__main__':
+    # Define the data directory and file paths
+    DATA_DIR = 'data/cornell movie-dialogs corpus/'
+    metadata_file = os.path.join(DATA_DIR, 'movie_characters_metadata.txt')
+    conversations_file = os.path.join(DATA_DIR, 'movie_conversations.txt')
+    lines_file = os.path.join(DATA_DIR, 'movie_lines.txt')
+    vocab_file = os.path.join(DATA_DIR, 'vocab.json')
+    train_file = os.path.join(DATA_DIR, 'train.txt')
+    val_file = os.path.join(DATA_DIR, 'val.txt')
+
+    # Initialize the data processor
+    processor = CornellDataProcessor(data_dir=DATA_DIR)
+
+    # Load the lines from the lines file
+    lines = processor.load_lines()
+
+    # Load the conversations from the conversations file
+    conversations = processor.load_conversations(lines)
+
+    # Load the metadata from the metadata file
+    character_metadata = processor.load_character_metadata()
+
+    # Create a dictionary mapping character IDs to character names
+    id2name = processor.get_character_id2name(character_metadata)
+
+    # Extract the pairs of questions and answers from the conversations
+    pairs = processor.extract_pairs(conversations, id2name)
+
+    # Build the vocabulary
+    processor.build_vocabulary(pairs)
+
+    # Split the pairs into training and validation sets
+    train_cutoff = int(len(pairs) * 0.8)
+
+    # Save the vocabulary to disk
+    processor.save_vocab()
+
+    print(f'The vocabulary has {len(processor.word2idx)} words.')
+
+    # Save the training and validation data to disk
+    processor.save_data(train_file, processor.questions[:train_cutoff], processor.answers[:train_cutoff])
+    processor.save_data(val_file, processor.questions[train_cutoff:], processor.answers[train_cutoff:])
+
+    print(f'The training data has {len(processor.questions[:train_cutoff])} pairs.')
+

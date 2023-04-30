@@ -3,7 +3,17 @@ import json
 import random
 import argparse
 from typing import List, Tuple
-#from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split
+import configparser
+
+# Load configuration file
+config = configparser.ConfigParser()
+config.read('config.ini')
+
+# Access configuration values
+data_dir = config.get('Data', 'DATA_DIR')
+min_length = config.getint('Data', 'MIN_LENGTH')
+max_length = config.getint('Data', 'MAX_LENGTH')
 
 
 def load_conversations(conversations_path: str) -> List[List[str]]:
