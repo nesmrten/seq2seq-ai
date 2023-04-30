@@ -38,9 +38,9 @@ class Tokenizer:
     @classmethod
     def load(cls, file_path):
         with open(file_path, 'r') as f:
-            data = json.load(f)
-        tokenizer = cls(max_len=data['max_len'])
-        tokenizer.stoi = data['stoi']
-        tokenizer.itos = data['itos']
-        tokenizer.counter = Counter(data['counter'])
+            tokenizer = cls()
+            tokenizer.vocab = json.load(f)
+            tokenizer.stoi = tokenizer.vocab['stoi']
+            tokenizer.itos = tokenizer.vocab['itos']
+            tokenizer.max_len = tokenizer.vocab['max_len']
         return tokenizer

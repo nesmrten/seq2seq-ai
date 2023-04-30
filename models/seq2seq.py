@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from models.encoder import EncoderRNN
-from models.decoder import DecoderRNN
+from .encoder import EncoderRNN
+from .decoder import DecoderRNN
 
 
 class Seq2Seq:

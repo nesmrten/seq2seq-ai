@@ -3,19 +3,12 @@ import json
 from models.utils.tokenizer import Tokenizer
 from models.seq2seq import EncoderRNN, DecoderRNN, Seq2Seq
 
+
 class Chatbot:
     def __init__(self, model_file, tokenizer_file):
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.seq2seq = Seq2Seq(model_file=model_file).to(self.device)
         self.tokenizer = Tokenizer.load(tokenizer_file)
-
-        self.encoder = Encoder(len(self.tokenizer.vocab))
-        self.decoder = Decoder(len(self.tokenizer.vocab))
-
-        model_dict = torch.load(model_file, map_location=torch.device('cpu'))
-
-        self.encoder.load_state_dict(model_dict['encoder_state_dict'])
-        self.decoder.load_state_dict(model_dict['decoder_state_dict'])
-
-        self.seq2seq = Seq2Seq(self.encoder, self.decoder)
 
     def generate_response(self, input_str):
         input_tkn = self.tokenizer.encode(input_str)
