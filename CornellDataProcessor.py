@@ -10,6 +10,7 @@ from torch import Tensor
 DATA_DIR = 'data/cornell movie-dialogs corpus/'
 
 class CornellDataProcessor:
+    
     def __init__(self, data_dir: str, min_word_freq: int = 5, max_len: int = 50):
         """
         Initialize the CornellDataProcessor object.
@@ -24,7 +25,7 @@ class CornellDataProcessor:
         self.max_len = max_len
 
         # Define the file paths
-        self.metadata_file = os.path.join(data_dir, 'movie_characters_metadata.txt')
+        self.metadata_file = os.path.join(data_dir, 'movie_characters_metadata.tsv')
         self.conversations_file = os.path.join(data_dir, 'movie_conversations.txt')
         self.lines_file = os.path.join(data_dir, 'movie_lines.txt')
         self.vocab_file = os.path.join(data_dir, 'vocab.json')
@@ -41,8 +42,7 @@ class CornellDataProcessor:
 
     def preprocess_pairs(self, pairs: List[Tuple[str, str]]) -> Tuple[List[List[str]], List[List[str]]]:
         """
-        Preprocesses the input pairs of questions and answers by tokenizing, lowercasing, and adding the start and end
-        tokens.
+        Preprocesses the input pairs of questions and answers by tokenizing, and adding the start and end tokens.
 
         Args:
             pairs (List[Tuple[str, str]]): A list of pairs of questions and answers.
@@ -50,8 +50,8 @@ class CornellDataProcessor:
         Returns:
             Tuple[List[List[str]], List[List[str]]]: The preprocessed questions and answers as lists of lists of tokens.
         """
-        # Tokenize and lowercase the questions and answers
-        tokenized_pairs = [(self.tokenize(sentence.lower()), self.tokenize(response.lower())) for sentence, response in pairs]
+        # Tokenize the questions and answers
+        tokenized_pairs = [(self.tokenize(sentence), self.tokenize(response)) for sentence, response in pairs]
 
         # Add the start and end tokens to the answer
         preprocessed_pairs = [(question, ['<sos>'] + answer + ['<eos>']) for question, answer in tokenized_pairs]
@@ -64,41 +64,43 @@ class CornellDataProcessor:
 
         return list(questions), list(answers)
 
-    def build_vocabulary(self, pairs: List[Tuple[str, str]]) -> None:
-        """
-        Builds the vocabulary from the input pairs of questions and answers.
 
-        Args:
-            pairs (List[Tuple[str, str]]): A list of pairs of questions and answers.
-        """
-        # Preprocess the pairs
-        questions, answers = self.preprocess_pairs(pairs)
+def build_vocabulary(self, pairs: List[Tuple[str, str]]) -> None:
+    """
+    Builds the vocabulary from the input pairs of questions and answers.
 
-        # Flatten the questions and answers into one list
-        all_words = [word for sentence in questions + answers for word in sentence]
+    Args:
+        pairs (List[Tuple[str, str]]): A list of pairs of questions and answers.
+    """
+    # Preprocess the pairs
+    questions, answers = self.preprocess_pairs(pairs)
 
-        # Count the frequency of each word
-        for word in all_words:
-            if word not in self.word_freq:
-                self.word_freq[word] = 1
-            else:
-                self.word_freq[word] += 1
+    # Flatten the questions and answers into one list
+    all_words = [word for sentence in questions + answers for word in sentence]
 
-        # Sort the words by frequency
-        sorted_words = sorted(self.word_freq.items(), key=lambda x: x[1], reverse=True)
+    # Count the frequency of each word
+    for word in all_words:
+        if word not in self.word_freq:
+            self.word_freq[word] = 1
+        else:
+            self.word_freq[word] += 1
 
-        # Create the vocabulary
-        self.word2idx = {'<pad>': 0, '<unk>': 1, '<sos>': 2, '<eos>': 3}
-        self.idx2word = {0: '<pad>', 1: '<unk>', 2: '<sos>', 3: '<eos>'}
-        for i, (word, freq) in enumerate(sorted_words):
-            if freq < self.min_word_freq:
-                break
-            self.word2idx[word] = i + 4
-            self.idx2word[i + 4] = word
+    # Sort the words by frequency
+    sorted_words = sorted(self.word_freq.items(), key=lambda x: x[1], reverse=True)
 
-# Save the vocabulary to disk
-with open(self.vocab_file, 'w', encoding='utf-8') as f:
-    json.dump({'word2idx': self.word2idx, 'idx2word': self.idx2word}, f)
+    # Create the vocabulary
+    self.word2idx = {'<pad>': 0, '<unk>': 1, '<sos>': 2, '<eos>': 3}
+    self.idx2word = {0: '<pad>', 1: '<unk>', 2: '<sos>', 3: '<eos>'}
+    for i, (word, freq) in enumerate(sorted_words):
+        if freq < self.min_word_freq:
+            break
+        self.word2idx[word] = i + 4
+        self.idx2word[i + 4] = word
+
+    # Save the vocabulary to disk
+    with open(self.vocab_file, 'w', encoding='utf-8') as f:
+        json.dump({'word2idx': self.word2idx, 'idx2word': self.idx2word}, f)
+
 
 def load_vocab(self) -> None:
     """
@@ -184,21 +186,30 @@ def extract_pairs(self) -> None:
             self.questions.append(conversation[i])
             self.answers.append(conversation[i + 1])
 
-def save_data(self) -> None:
+def save_data(self, train_pairs: List[Tuple[str, str]], val_pairs: List[Tuple[str, str]]) -> None:
     """
-    Saves the training and validation data to disk.
+    Saves the preprocessed training and validation data to disk.
+
+    Args:
+        train_pairs (List[Tuple[str, str]]): The preprocessed training data as a list of pairs of questions and answers.
+        val_pairs (List[Tuple[str, str]]): The preprocessed validation data as a list of pairs of questions and answers.
     """
-    # Split the data into training and validation sets
-    indices = list(range(len(self.questions)))
-    random.shuffle(indices)
-    train_indices = indices[:int(len(indices) * 0.9)]
-    val_indices = indices[int(len(indices) * 0.9):]
+    # Preprocess the pairs
+    train_questions, train_answers = self.preprocess_pairs(train_pairs)
+    val_questions, val_answers = self.preprocess_pairs(val_pairs)
 
-# Save the training data to disk
-self.save_data(self.train_file, self.questions[:train_cutoff], self.answers[:train_cutoff])
+    # Save the training data to disk
+    with open(self.train_file, 'w', encoding='utf-8', newline='\n') as f:
+        writer = csv.writer(f, delimiter='\t')
+        for question, answer in zip(train_questions, train_answers):
+            writer.writerow(question + answer)
 
-# Save the validation data to disk
-self.save_data(self.val_file, self.questions[train_cutoff:], self.answers[train_cutoff:])
+    # Save the validation data to disk
+    with open(self.val_file, 'w', encoding='utf-8', newline='\n') as f:
+        writer = csv.writer(f, delimiter='\t')
+        for question, answer in zip(val_questions, val_answers):
+            writer.writerow(question + answer)
+
 
 def tokenize(self, sentence: str) -> List[str]:
     """
@@ -218,26 +229,38 @@ def tokenize(self, sentence: str) -> List[str]:
 
     return tokens
 
-def save_data(self, file_path: str, questions: List[List[str]], answers: List[List[str]]) -> None:
+def save_data(self, pairs: List[Tuple[str, str]], train_frac: float = 0.8, shuffle: bool = True) -> None:
     """
-    Saves the questions and answers to disk.
+    Saves the preprocessed data to disk.
 
     Args:
-        file_path (str): The path to the file where the data will be saved.
-        questions (List[List[str]]): A list of questions as lists of tokens.
-        answers (List[List[str]]): A list of answers as lists of tokens.
+        pairs (List[Tuple[str, str]]): A list of pairs of questions and answers.
+        train_frac (float): The fraction of the data to use for training.
+        shuffle (bool): Whether to shuffle the data before splitting into training and validation sets.
     """
-    # Combine the questions and answers into pairs
-    pairs = list(zip(questions, answers))
+    # Preprocess the pairs
+    questions, answers = self.preprocess_pairs(pairs)
 
-    # Shuffle the pairs
-    random.shuffle(pairs)
+    # Split the data into training and validation sets
+    indices = list(range(len(questions)))
+    if shuffle:
+        random.shuffle(indices)
+    split_idx = int(len(indices) * train_frac)
+    train_indices = indices[:split_idx]
+    val_indices = indices[split_idx:]
 
-    # Open the file for writing
-    with open(file_path, 'w', encoding='utf-8') as f:
-        # Write each pair to the file as a JSON object
-        for question, answer in pairs:
-            f.write(json.dumps({'question': question, 'answer': answer}) + '\n')
+    # Save the training and validation data to disk
+    with open(self.train_file, 'w', encoding='utf-8', newline='\n') as f:
+        for i in train_indices:
+            question = questions[i]
+            answer = answers[i]
+            f.write('\t'.join(question).replace('\n', '') + '\t' + '\t'.join(answer).replace('\n', '') + '\n')
+    with open(self.val_file, 'w', encoding='utf-8', newline='\n') as f:
+        for i in val_indices:
+            question = questions[i]
+            answer = answers[i]
+            f.write('\t'.join(question).replace('\n', '') + '\t' + '\t'.join(answer).replace('\n', '') + '\n')
+
 
 if __name__ == '__main__':
     # Define the data directory and file paths
