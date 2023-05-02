@@ -67,7 +67,7 @@ def pad_collate_fn(batch, word2id):
 
 
 if __name__ == "__main__":
-    dataset = ChatbotDataset("data/cornell_movie-dialogs_corpus", "data/cornell_movie-dialogs_corpus/vocab.txt")
+    dataset = ChatbotDataset("data/cornell movie-dialogs corpus", "data/cornell movie-dialogs corpus/vocab.txt")
     dataloader = DataLoader(dataset, batch_size=Config.BATCH_SIZE, shuffle=True, collate_fn=lambda batch: pad_collate_fn(batch, dataset.word2id))
     for i, (input_batch, target_batch) in enumerate(dataloader):
         print(input_batch)

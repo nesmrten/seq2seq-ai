@@ -1,4 +1,4 @@
-cornell_movie-dialogs_corpus
+cornell movie-dialogs corpus
 
 Distributed together with:
 

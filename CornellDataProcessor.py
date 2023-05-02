@@ -6,7 +6,7 @@ import json
 
 
 class CornellDataProcessor:
-    def __init__(self, data_dir='data/cornell_movie-dialogs_corpus', min_word_frequency=2):
+    def __init__(self, data_dir='data/cornell movie-dialogs corpus', min_word_frequency=2):
         self.data_dir = data_dir
         self.lines_file = os.path.join(data_dir, 'movie_lines.txt')
         self.conversations_file = os.path.join(data_dir, 'movie_conversations.txt')
@@ -182,7 +182,7 @@ class CornellDataProcessor:
 
 if __name__ == '__main__':
     # Define the data directory and file paths
-    DATA_DIR = 'data/cornell_movie-dialogs_corpus/'
+    DATA_DIR = 'data/cornell movie-dialogs corpus/'
     vocab_file = os.path.join(DATA_DIR, 'vocab.json')
     train_file = os.path.join(DATA_DIR, 'train.txt')
     val_file = os.path.join(DATA_DIR, 'val.txt')

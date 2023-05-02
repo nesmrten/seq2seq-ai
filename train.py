@@ -29,7 +29,7 @@ if not os.path.exists(vocab_file):
     raise ValueError(f"Vocabulary file '{args.vocab_file}' does not exist.")
 
 # Initialize the dataset and dataloader
-dataset = ChatbotDataset(os.path.join(args.data_dir, "cornell_movie-dialogs_corpus"), vocab_file, min_word_freq=Config.MIN_WORD_FREQ, min_length=Config.MIN_LENGTH, max_length=Config.MAX_LENGTH)
+dataset = ChatbotDataset(os.path.join(args.data_dir, "cornell movie-dialogs corpus"), vocab_file, min_word_freq=Config.MIN_WORD_FREQ, min_length=Config.MIN_LENGTH, max_length=Config.MAX_LENGTH)
 
 test_dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, collate_fn=lambda x: pad_sequence(x, batch_first=True, padding_value=0))
 
