@@ -1,1 +1,1 @@
-{"word2idx": {}, "idx2word": {}}
+{"vocab_size": 50001, "word2idx": {"<pad>": 0, "<sos>": 1, "<eos>": 2, "Hi,": 3, "my": 4, "name": 5, "is": 6, "Medea!": 7, "I": 8, "came": 9, "in": 10, "love": 11, "and": 12, "peace.": 13, "<unk>": 50000}}
