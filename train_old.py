@@ -11,7 +11,7 @@ DATA_DIR = 'data'
 MODEL_DIR = 'models'
 VOCAB_FILE = os.path.join(DATA_DIR, 'vocab.txt')
 MODEL_FILE = os.path.join(MODEL_DIR, 'seq2seq.pt')
-DATA_FILE = os.path.join(DATA_DIR, 'cornell movie-dialogs corpus/movie_lines.txt')
+DATA_FILE = os.path.join(DATA_DIR, 'cornell_movie-dialogs_corpus/movie_lines.txt')
 MIN_WORD_FREQ = 5
 MIN_LENGTH = 5
 MAX_LENGTH = 20
@@ -41,7 +41,7 @@ if __name__ == '__main__':
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='Train a sequence-to-sequence model for a chatbot.')
-parser.add_argument('--data_dir', type=str, default='data/cornell movie-dialogs corpus/', help='Directory containing the data files.')
+parser.add_argument('--data_dir', type=str, default='data/cornell_movie-dialogs_corpus/', help='Directory containing the data files.')
 parser.add_argument('--models_dir', type=str, default='models/', help='Directory to save the trained models.')
 parser.add_argument('--logs_dir', type=str, default='logs/', help='Directory to save the TensorBoard logs.')
 parser.add_argument('--min_word_freq', type=int, default=5, help='Minimum frequency of a word to be included in the vocabulary.')
@@ -97,7 +97,7 @@ os.makedirs(MODELS_DIR, exist_ok=True)
 os.makedirs(LOGS_DIR, exist_ok=True)
 
 #Load the dataset
-dataset = ChatbotDataset(os.path.join(DATA_DIR, 'cornell movie-dialogs corpus/movie_lines.txt'), tokenizer, MIN_WORD_FREQ, MIN_LENGTH, MAX_LENGTH)
+dataset = ChatbotDataset(os.path.join(DATA_DIR, 'cornell_movie-dialogs_corpus/movie_lines.txt'), tokenizer, MIN_WORD_FREQ, MIN_LENGTH, MAX_LENGTH)
 
 #Split the dataset into training and validation sets
 train_dataset, dev_dataset = dataset.split(VALIDATION_SPLIT)

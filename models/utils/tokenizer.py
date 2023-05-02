@@ -1,14 +1,13 @@
 import json
 import os
 
-import numpy as np
-
-
 class Tokenizer:
-    def __init__(self, vocab_size):
+    def __init__(self, vocab_size=50000):
         self.vocab_size = vocab_size
         self.word2idx = {}
         self.idx2word = {}
+        self.vocab = set()
+        self.num_words = 0
 
     def fit_on_texts(self, texts):
         """
@@ -89,16 +88,7 @@ class Tokenizer:
             json.dump(self.to_json(), f)
 
     @classmethod
-    def load_from_file(cls, file_path):
-        """
-        Loads a Tokenizer object from a file.
-
-        Args:
-            file_path (str): The path to the file.
-
-        Returns:
-            Tokenizer: The loaded Tokenizer object.
-        """
-        with open(file_path, 'r') as f:
-            json_dict = json.load(f)
-        return cls.from_json(json_dict)
+    def load_from_file(self, file_path):
+        with open(file_path, 'r', encoding='utf-8') as f:
+            self.word2idx = json.load(f)
+        self.idx2word = {idx: word for word, idx in self.word2idx.items()}

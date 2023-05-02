@@ -1,74 +1,76 @@
 import os
 import torch
-from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
-from models.utils.tokenizer import Tokenizer
-
-
-def pad_collate_fn(batch):
-    inputs = [torch.LongTensor(pair[0]) for pair in batch]
-    targets = [torch.LongTensor(pair[1]) for pair in batch]
-
-    inputs_lengths = torch.LongTensor([len(pair[0]) for pair in batch])
-    targets_lengths = torch.LongTensor([len(pair[1]) for pair in batch])
-
-    inputs = torch.nn.utils.rnn.pad_sequence(inputs, batch_first=True, padding_value=0)
-    targets = torch.nn.utils.rnn.pad_sequence(targets, batch_first=True, padding_value=0)
-
-    return inputs, inputs_lengths, targets, targets_lengths
+from torch.utils.data import Dataset, DataLoader
+from config import Config
 
 
 class ChatbotDataset(Dataset):
-    def __init__(self, data_dir, vocab_file, min_word_freq=2, min_length=1, max_length=50):
-        self.data = []
-        self.tokenizer = Tokenizer(vocab_size=10000)
-        self.load_data(data_dir, vocab_file, min_word_freq, min_length, max_length)
+    def __init__(self, data_dir, vocab_file, min_word_freq=Config().MIN_WORD_FREQ, min_length=Config().MIN_LENGTH, max_length=Config().MAX_LENGTH):
+        self.data_dir = data_dir
+        self.vocab_file = vocab_file
+        self.min_word_freq = min_word_freq
+        self.min_length = min_length
+        self.max_length = max_length
+        self.word2id, self.id2word = self.load_vocab()
 
-    def load_data(self, data_dir, vocab_file, min_word_freq, min_length, max_length):
-        with open(os.path.join(data_dir, "movie_lines.txt"), "r", encoding="utf-8", errors="ignore") as f:
-            lines = f.readlines()
-
-        id2line = {}
-        for line in lines:
-            parts = line.strip().split(" +++$+++ ")
-            id2line[parts[0]] = parts[-1]
-
-        with open(os.path.join(data_dir, "movie_conversations.txt"), "r", encoding="utf-8", errors="ignore") as f:
-            lines = f.readlines()
-
-        for line in lines:
-            parts = line.strip().split(" +++$+++ ")
-            conversation = [id2line[conv_id] for conv_id in parts[-1][1:-1].split(", ")]
-            for i in range(len(conversation) - 1):
-                input_line = conversation[i].strip()
-                target_line = conversation[i + 1].strip()
-                if min_length <= len(input_line.split()) <= max_length and \
-                        min_length <= len(target_line.split()) <= max_length:
-                    self.data.append((input_line, target_line))
-
-        self.tokenizer.load_vocab_from_file(vocab_file)
-        self.tokenizer.build_vocab_from_sentences([pair[0] for pair in self.data],
-                                                   min_word_freq=min_word_freq)
-
-    def __getitem__(self, index):
-        input_sentence, target_sentence = self.data[index]
-        input_tokens = self.tokenizer.tokenize_sentence(input_sentence)
-        target_tokens = self.tokenizer.tokenize_sentence(target_sentence)
-        input_ids = self.tokenizer.tokens2ids(input_tokens)
-        target_ids = self.tokenizer.tokens2ids(target_tokens)
-        return input_ids, target_ids
+        self.conversations = self.load_conversations()
 
     def __len__(self):
-        return len(self.data)
+        return len(self.conversations)
 
-    def pad_collate_fn(batch):
-        inputs = [torch.LongTensor(pair[0]) for pair in batch]
-        targets = [torch.LongTensor(pair[1]) for pair in batch]
+    def __getitem__(self, idx):
+        return self.conversations[idx]
 
-        inputs_lengths = torch.LongTensor([len(pair[0]) for pair in batch])
-        targets_lengths = torch.LongTensor([len(pair[1]) for pair in batch])
+    def load_vocab(self):
+        with open(self.vocab_file, "r") as f:
+            vocab = [line.strip() for line in f.readlines()]
+        word2id = {w: i for i, w in enumerate(vocab)}
+        id2word = {i: w for i, w in enumerate(vocab)}
+        return word2id, id2word
 
-        inputs = torch.nn.utils.rnn.pad_sequence(inputs, batch_first=True, padding_value=0)
-        targets = torch.nn.utils.rnn.pad_sequence(targets, batch_first=True, padding_value=0)
+    def load_conversations(self):
+        conversations = []
+        with open(os.path.join(self.data_dir, "movie_lines.txt"), "r", encoding="iso-8859-1") as f:
+            lines = f.readlines()
+            for line in lines:
+                parts = line.strip().split(" +++$+++ ")
+                if len(parts) == 5:
+                    line_text = parts[4]
+                    if len(line_text.split(" ")) >= self.min_length and len(line_text.split(" ")) <= self.max_length:
+                        conversations.append(line_text)
+        return conversations
 
-        return inputs, inputs_lengths, targets, targets_lengths
+    def preprocess(self, sentence):
+        tokens = sentence.lower().split(" ")
+        result = []
+        for token in tokens:
+            if token in self.word2id:
+                result.append(self.word2id[token])
+            else:
+                result.append(self.word2id[Config.UNK_TOKEN])
+        return result
+
+
+def pad_collate_fn(batch, word2id):
+    input_batch = []
+    target_batch = []
+    for conversation in batch:
+        input_sentence = conversation[:-1]
+        target_sentence = conversation[1:]
+        input_tokens = preprocess(input_sentence, word2id)
+        target_tokens = preprocess(target_sentence, word2id)
+        input_batch.append(torch.LongTensor(input_tokens))
+        target_batch.append(torch.LongTensor(target_tokens))
+    input_batch = torch.nn.utils.rnn.pad_sequence(input_batch, padding_value=word2id[Config.PAD_TOKEN])
+    target_batch = torch.nn.utils.rnn.pad_sequence(target_batch, padding_value=word2id[Config.PAD_TOKEN])
+    return input_batch, target_batch
+
+
+if __name__ == "__main__":
+    dataset = ChatbotDataset("data/cornell_movie-dialogs_corpus", "data/cornell_movie-dialogs_corpus/vocab.txt")
+    dataloader = DataLoader(dataset, batch_size=Config.BATCH_SIZE, shuffle=True, collate_fn=lambda batch: pad_collate_fn(batch, dataset.word2id))
+    for i, (input_batch, target_batch) in enumerate(dataloader):
+        print(input_batch)
+        print(target_batch)
+        if i > 2:
+            break

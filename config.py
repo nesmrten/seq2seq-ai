@@ -24,3 +24,8 @@ class Config:
 
     # Vocabulary file
     VOCAB_FILE = os.path.join(DATA_DIR, 'vocab.txt')
+
+    # Evaluation parameters
+    MAX_LENGTH = 20
+    TEMPERATURE = 1.0
+    RANDOM_SEED = 42
